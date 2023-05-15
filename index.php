@@ -1,5 +1,5 @@
 <?php
-@ini_set('display_errors', 'Off');
+@ini_set('display_errors', 'On');
 /*
  * Author: Coding Mahib
  * Web: codinmahib.weekbly.com
@@ -212,7 +212,10 @@ if($id == 2){
     $pass = $_SESSION['pass'];
     ftp_login($ftp_connect,$uname,$pass);
     //ftp_put($ftp_connect,'localfile.txt','local.txt',FTP_ASCII);
-    
+    //
+//Enable PASV ( Note: must be done after ftp_login() )
+//
+    $mode = ftp_pasv($ftp_connect, TRUE);
     ?>
     <div class="container" id="menu">
     <br />
@@ -252,20 +255,32 @@ if($id == 2){
     if(isset($_GET['directory'])){
         $dir = $_GET['directory'];
         $f = ftp_nlist($ftp_connect,'/'.$dir.'/');
-        echo $config['directory'];
+        //echo $config['directory'];
         $d = $config['directory'];
         $new = $dir.'/';
         $_SESSION['dir'] = $new;
-        echo $new;
+        //echo $new;
     }else{
         if(isset($_SESSION['dir'])){
+            $dir = $_SESSION['dir'];
             $f = ftp_nlist($ftp_connect,$_SESSION['dir']);
         }else{
+            $dir = '/';
             $f = ftp_nlist($ftp_connect,'/');
         }
-        echo $_SESSION['dir'];
+        //echo $_SESSION['dir'];
     }
-   
+    echo $dir.'<br/>';
+    // print('file array:');
+    $entries = ftp_mlsd($ftp_connect, $dir) or die("Cannot list directory");
+
+foreach ($entries as $entry)
+{
+    if (($entry["type"] != "cdir") && ($entry["type"] != "pdir"))
+    {
+        echo $entry["name"] . " - " . $entry["UNIX.mode"] . "\n";
+    }
+}
     foreach($f as $key=>$dat){
         // CODE OF FILE
         $ext = ext($dat);
@@ -333,18 +348,18 @@ if($id == 2){
         </td>
         <td>
             <?php
-            /*if(!$ext == ''){
+            if(!$ext == ''){
                 $size = ftp_size($ftp_connect,$dat);
                 echo $size;
                 
-            }*/
+            }
             ?>
         </td>
         <td>
             <?php
             if($ext == ''){
                 ?>
-                <a href="?request=rename&&folder=" class="btn btn-dark">Rename</a>
+                <a href="?request=rename&&folder=<?php echo $dat; ?>" class="btn btn-dark">Rename</a>
                 <?php
             }else{
                 ?>
@@ -494,6 +509,37 @@ if($id == 2){
                 }else{
                     ?>
                     <script>alert("Cannot create a folder")</script>
+                    <?php
+                }
+            }else{
+                if(ftp_mkdir($ftp_connect,'/'.$folder)){
+                    ?>
+                    <script>alert("Folder Successfully Created")</script>
+                    <?php
+                }else{
+                    ?>
+                    <script>alert("Cannot create a folder")</script>
+                    <?php
+                }
+            }
+        }
+    }
+    if($r == 'rename'){
+        $fileDe = $_GET['folder'];
+        echo '<form class="form" method="post">Old Name:'.$fileDe.'New Name:<input type="text" name="newname" class="form-control"><button class="btn btn-success" type="submit">rename</button></form>';
+        if($_POST['newname']){
+            $folder = $_POST['newname'];
+            if(isset($_SESSION['dir'])){
+                $dir = $_SESSION['dir'];
+                //echo $dir.$folder;
+                ftp_chdir($ftp_connect, $dir);
+                if(ftp_rename($ftp_connect,$fileDe,$folder)){
+                    ?>
+                    <script>alert("Successfully Renamed")</script>
+                    <?php
+                }else{
+                    ?>
+                    <script>alert("Cannot rename")</script>
                     <?php
                 }
             }else{
